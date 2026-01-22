@@ -30,7 +30,7 @@ def plot_results(payload: dict, out_dir: str) -> None:
     h1, l1 = ax.get_legend_handles_labels()
     h2, l2 = ax2.get_legend_handles_labels()
     if h1 or h2:
-        ax.legend(h1 + h2, l1 + l2, loc="lower right", frameon=False)
+        ax.legend(h1 + h2, l1 + l2, loc="best", frameon=False)
 
     fig.tight_layout()
     fig.savefig(out / "acc_error.png", dpi=150)
