@@ -242,3 +242,94 @@ $$
 
 ## Appendix：Toy Synthetic Dataset
 
+本附錄描述用於 Experiment A 的 2D obstacle classification 合成資料集（可重現）。設計目標是產生：8 台 slowly drifting honest clients + 2 台按時間週期翻標的 poisoning clients（每 3 輪翻標一次），並同時呈現 client 間 non-IID 與時間連續性的特性。
+
+**全域感測平面**
+
+$$
+\mathcal{X}=[-1,1]^2,\qquad x=(x_1,x_2)\in\mathbb{R}^2
+$$
+
+以 $K$ 個圓形障礙物定義 ground-truth 標籤。第 $k$ 個障礙物中心為 $c_k$，半徑為 $r_k$，硬標籤定義為：
+
+$$
+y(x)=\\mathbf{1}\\Big(\\exists k\\in\\{1,\\dots,K\\}:\\ \\|x-c_k\\|_2\\le r_k\\Big)
+$$
+
+（可選）使用 soft-logit：令 $d(x)=\\min_k(\\|x-c_k\\|_2-r_k)$ 並以 sigmoid 取得 $p(y{=}1\\mid x)$。
+
+**client 時間動態與資料分布**
+
+每個 client $i$ 在輪次 $t$ 有一個感測中心 $m_i^t$（代表無人機/感測器當前位置），我們用兩種可選軌跡生成：
+
+- 等速加小擾動：
+$$
+m_i^t=m_i^{t-1}+v_i+\\epsilon_i^t,\\qquad\\epsilon_i^t\\sim\\mathcal{N}(0,\\sigma_m^2 I)
+$$
+- 圓周/橢圓軌跡（不易跑出界）：
+$$
+m_i^t=\\begin{bmatrix}a_i\\cos(\\omega t+\\phi_i)\\\\b_i\\sin(\\omega t+\\phi_i)\\end{bmatrix}+\\delta_i
+$$
+
+每輪每 client 的取樣分布為中心化高斯混合少量 uniform 背景噪聲：
+
+$$
+x\\sim(1-\\rho)\\,\\mathcal{N}(m_i^t,\\Sigma_i)\\ +\\ \\rho\\,\\mathcal{U}([-1,1]^2)
+$$
+
+其中 $\\Sigma_i$ 可為旋轉後的橢圓協方差：
+
+$$
+\Sigma_i = R(\theta_i)\begin{bmatrix}\sigma_{i,1}^2 & 0 \\ 0 & \sigma_{i,2}^2\end{bmatrix}R(\theta_i)^\top
+$$
+
+每輪從上述混合分布抽取 $n$ 筆樣本，標籤由 $y(x)$ 決定：$y_{i,j}^t=y(x_{i,j}^t)$。
+
+**poisoning（時間相關 label flipping）**
+
+令惡意 client 集合為 $\\mathcal{M}$（大小 2）。定義時間開關
+
+$$
+s(t)=\\mathbf{1}(t\\bmod 3 = 0)
+$$
+
+對 $i\\in\\mathcal{M}$ 的回報標籤為
+
+$$
+\widetilde{y}_{i,j}^t=\begin{cases}
+1-y_{i,j}^t, & s(t)=1 \\
+y_{i,j}^t, & s(t)=0
+\end{cases}
+$$
+
+Honest client 則回報原始 $y_{i,j}^t$。
+
+**推薦參數（實驗用）**
+
+- 障礙物：$K=3$，
+  $c_1=(0.3,0.3),\\ r_1=0.25$； $c_2=(-0.4,0.2),\\ r_2=0.20$； $c_3=(0.0,-0.5),\\ r_3=0.30$。
+- Clients：10（8 honest + 2 malicious）
+- honest 軌跡速度 $\\lVert v_i\\rVert\\sim\\mathrm{Uniform}(0.005,0.02)$（或用小 $\\omega$ 的圓周軌跡）
+- 背景雜訊比例 $\\rho=0.05$
+- 協方差參數 $\\sigma_{i,1},\\sigma_{i,2}\\in[0.05,0.12]$
+- 每輪每 client 樣本數 $n=200$
+- 輪次 $T\\in[30,60]$
+
+**生成流程（可直接實作為 PyTorch Dataset/loader）**
+
+1. 固定障礙物參數 $\\{c_k,r_k\\}_{k=1}^K$。
+2. 初始每個 client 的位置 $m_i^0$，以及 $\\delta_i,\\Sigma_i,\\theta_i$、以及是否為惡意（$i\\in\\mathcal{M}$）。
+3. 對於每個輪次 $t=1\\dots T$：
+   - 更新 $m_i^t$（依軌跡規則）。
+   - 對每個 client 抽取 $n$ 筆 $x_{i,j}^t$，計算 $y_{i,j}^t$。
+   - 若 $i\\in\\mathcal{M}$ 且 $s(t)=1$，將標籤翻轉為 $\\tilde y_{i,j}^t$。
+   - 輸出資料集 $\\mathcal{D}_i^t=\\{(x_{i,j}^t,\\tilde y_{i,j}^t)\\}_{j=1}^n$ 給本輪 local train。
+
+**實作提示**
+
+- 將 dataset 設為「每輪動態產生」會簡化實驗（避免一次生成全部資料）。
+- 使用固定 seed 控制可重現性（包括軌跡初值與高斯抽樣）。
+- 若想平滑 decision boundary，可改用 soft logits（見上文），並在 training 時使用 cross-entropy。
+
+此合成資料規格既能呈現時間連續性的合理 drift，又能使週期性翻標的惡意 client 在時間序列上產生可檢測的突變，適合作為 TCR-FL 的 toy benchmark。
+
