@@ -220,7 +220,7 @@ $$
 
 ---
 
-### 小總結（為什麼這些 insight 很重要）
+### 小總結
 
 * **Experiment A**：驗證 *TCR-FL 不會犧牲正常收斂*，且權重機制確實能抓到時間型攻擊
 * **Experiment B**：證明 *TCR-FL 不會把 concept drift 當成攻擊*
