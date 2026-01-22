@@ -25,6 +25,13 @@ def plot_results(payload: dict, out_dir: str) -> None:
     ax.set_ylabel("accuracy")
     ax2.set_ylabel("error")
     ax.set_title(payload.get("run_name", "run"))
+
+    # Twin axes need manual legend combination
+    h1, l1 = ax.get_legend_handles_labels()
+    h2, l2 = ax2.get_legend_handles_labels()
+    if h1 or h2:
+        ax.legend(h1 + h2, l1 + l2, loc="lower right", frameon=False)
+
     fig.tight_layout()
     fig.savefig(out / "acc_error.png", dpi=150)
     plt.close(fig)
