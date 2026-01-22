@@ -42,7 +42,7 @@ def main() -> None:
         run_name=args.run_name or f"{args.agg}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
         fl=type(exp.fl)(rounds=args.rounds, global_lr=exp.fl.global_lr, seed=args.seed),
         data=type(exp.data)(
-            **{**exp.data.__dict__},
+            **{k: v for k, v in exp.data.__dict__.items() if k != "task_switch"},
             task_switch=type(exp.data.task_switch)(enabled=args.task_switch, switch_every=args.switch_every, seed=exp.data.task_switch.seed),
         ),
         local=exp.local,
